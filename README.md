@@ -1,0 +1,2 @@
+# gng
+Growing Neural Gas
