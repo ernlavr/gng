@@ -1,4 +1,3 @@
-from operator import attrgetter
 import numpy as np
 import random
 import cv2
@@ -11,7 +10,7 @@ from src.Utils import *
 class GrowingNeuralGas():
     """ Implements the growing neural gas algorithm as described by Bernd Fritzke """
 
-    def __init__(self, input):
+    def __init__(self, input, trainingIterations):
         """
         Initializes the Growing Neural Gas algorithm.
         """
@@ -21,9 +20,11 @@ class GrowingNeuralGas():
         self.edges          : list[Edge]                = []
         self.dotLocations   : np.ndarray[TwoDimVector]  = []
         self.borders        : tuple[float]              = input.shape
-        self.max_iterations : int                       = 75000
-        self.maxNodes       : int                       = 50
-        self.newNodeEvery   : int                       = 5
+        self.max_iterations : int                       = trainingIterations
+        self.maxNodes       : int                       = 200
+        self.lmbda          : int                       = 100
+        self.alpha          : int                       = 0.5
+        self.beta           : int                       = 0.00005
         self.max_error      : float                     = 0.1
         self.max_distance   : int                       = 140
         self.maxAge         : int                       = 10
@@ -40,9 +41,12 @@ class GrowingNeuralGas():
     def setDataPoints(self):
         """ Get centre points of each blob in the image """
         data = []
+        counter = 0
         for (x, y), value in np.ndenumerate(self.input):
             if value == 0:
-                data.append(TwoDimVector(x, y))
+                counter += 1
+                if counter % 5 == 0: # decrease the amount of data points
+                    data.append(TwoDimVector(x, y))
         self.dotLocations = np.array(data)
 
     def createNode(self, pos):
@@ -73,26 +77,28 @@ class GrowingNeuralGas():
         Creates an edge between the two given nodes.
         """
         # edgeSrc/Dst are there to simply ensure that src is always the source node's id for aesthetic purposes
-        edgeSrc = Edge(src, dst, 0)
-        self.edges.append(edgeSrc)
+        src.neighbours.append(dst)
+        dst.neighbours.append(src)
+        self.edges.append(Edge(src, dst, 0))
         
-
 
     def removeConnectionOfTwoNodes(self, src, dst):
         """
         Removes the edge between the two given nodes.
         """
-        # Check if src and dst are connected, if so then remove the edge entry for both data structures, also self.edges
-        for edge in src.edges:
-            if edge.source.id == src.id and edge.target.id == dst.id:
-                self.edges.remove(edge)
-                return True
-            if edge.target.id == src.id and edge.source.id == dst.id:
-                self.edges.remove(edge)
-                return True
-            
-                
-        
+
+        # Remove the neighbours
+        if src in dst.neighbours and dst in src.neighbours:
+            src.neighbours.remove(dst)
+            dst.neighbours.remove(src)
+
+            # Update the local edges
+            for edge in self.edges:
+                if edge.src == src and edge.dst == dst:
+                    self.edges.remove(edge)
+                if edge.src == dst and edge.dst == src:
+                    self.edges.remove(edge)
+
         return False
 
 
@@ -100,20 +106,21 @@ class GrowingNeuralGas():
         """
         Illustrates the network by adding nodes and edges to the self.visualization array and display it using matplotlib.
         """
+        print("Visializing...")
         # Show the visualization array in matplotlib
-        plt.imshow(self.visualization, cmap='gray')
+        #plt.imshow(self.visualization, cmap='gray')
 
         # # with a single-pixel dot, illustrate self.dotLocations
         for dot in self.dotLocations:
-            plt.scatter(dot.x, dot.y, color='cyan', s=1)
+            plt.scatter(dot.x, -dot.y, color='cyan', s=1)
 
         # with a small red dot add all nodes
         for node in self.nodes:
-            plt.plot(node.pos.x, node.pos.y, 'r.')
+            plt.plot(node.pos.x, -node.pos.y, 'r.')
         
         # with a thin green, transparent line add all edges
         for edge in self.edges:
-            plt.plot([edge.source.pos.x, edge.target.pos.x], [edge.source.pos.y, edge.target.pos.y], 'g-', alpha=0.5, linewidth=0.5)            
+            plt.plot([edge.src.pos.x, edge.dst.pos.x], [-edge.src.pos.y, -edge.dst.pos.y], 'g-', alpha=0.5, linewidth=0.5)            
         
         plt.show()
 
@@ -178,36 +185,45 @@ class GrowingNeuralGas():
 
             # Update edge ages
             for edge in self.edges:
-                if edge.source.id == first.node.id or edge.target.id == first.node.id:
+                if edge.src.id == first.node.id or edge.dst.id == first.node.id:
                     edge.age += 1
 
                     # Remove the oldies
                     if edge.age > self.maxAge:
-                        self.removeConnectionOfTwoNodes(edge.source, edge.target)
+                        self.removeConnectionOfTwoNodes(edge.src, edge.dst)
 
             # Check if we should add a new node
-            if i % self.newNodeEvery == 0 and self.numNodes < self.maxNodes:
+            if i % self.lmbda == 0 and self.numNodes < self.maxNodes:
+                # Find the node with the highest error
+                maxErrorNode = None
+                maxError = 0
+                for node in self.nodes:
+                    if node.error > maxError:
+                        maxError = node.error
+                        maxErrorNode = node
+
+                # FInd the maxErrorNode neighbour with the largest error
+                maxErrorNeighbour = None
+                maxErrorNeighbourError = 0
+                for neighbour in maxErrorNode.neighbours:
+                    if neighbour.error >= maxErrorNeighbourError:
+                        maxErrorNeighbourError = neighbour.error
+                        maxErrorNeighbour = neighbour
                 
-                largestErrorNode = max(self.nodes, key=attrgetter('error'))
-                # Get the largest error neighbour that largestErrorNode has by querying self.edges
-                tmp = 0
-                largestNeighbour = None
-                for edge in self.edges:
-                    if edge.source.id == largestErrorNode.id:
-                        if edge.target.error > tmp:
-                            tmp = edge.target.error
-                            largestNeighbour = edge.target
-                    elif edge.target.id == largestErrorNode.id:
-                        if edge.source.error > tmp:
-                            tmp = edge.source.error
-                            largestNeighbour = edge.source
+                # Insert a new node between the maxErrorNeighbour and maxErrorNode
+                newNode = self.createNode(TwoDimVector((maxErrorNode.pos.x + maxErrorNeighbour.pos.x) / 2, (maxErrorNode.pos.y + maxErrorNeighbour.pos.y) / 2))
+                self.connectTwoNodes(maxErrorNode, newNode)
+                self.connectTwoNodes(newNode, maxErrorNeighbour)
+                self.removeConnectionOfTwoNodes(maxErrorNode, maxErrorNeighbour)
 
+                # Decrease the error of the maxErrorNode and maxErrorNeighbour
+                maxErrorNode.error *= self.alpha
+                maxErrorNeighbour.error *= self.alpha
+                newNode.error = maxErrorNode.error
 
+                # Decrease all other node errors
+                for node in self.nodes:
+                    if node != maxErrorNode and node != maxErrorNeighbour:
+                        node.error *= self.beta
 
-                
-
-                randomX = random.randint(0, self.borders[0] - 1)
-                randomY = random.randint(0, self.borders[1] - 1)
-                self.createNode(TwoDimVector(randomX, randomY))
-                       
         self.visualize()

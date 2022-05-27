@@ -18,15 +18,11 @@ class TwoDimVector():
 
 @dataclass
 class Edge():
-    """
-    Edge class for the Growing Neural Gas algorithm
-    """
-
-    """ Source ID """
-    source : Node
-    """ Target ID """
-    target : Node
-    """ Weight """
+    """ Source node """
+    src : Node
+    """ Destination node """
+    dst : Node
+    """ Age of edge"""
     age : int
 
 @dataclass
@@ -36,11 +32,11 @@ class Node():
     """
 
     """ ID of the node"""
-    id      : int
+    id          : int
     """ Position of a node in space """
-    pos     : TwoDimVector
+    pos         : TwoDimVector
     """ Local accumulated error """
-    error   : float
+    error       : float
     """ Set of edges that define the topological neighbours of this node """
-    edges   : list[Edge]
+    neighbours  : list[Node]
 
