@@ -27,7 +27,7 @@ class Edge():
     """ Target ID """
     target : Node
     """ Weight """
-    weight : float
+    age : int
 
 @dataclass
 class Node():

@@ -15,7 +15,7 @@ def main():
     args = getCmdLineArgs()
     img = cv2.imread(args.image)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    img = cv2.threshold(img,127,255,0)
+    img = cv2.threshold(img,10,255,0)
     gng = Gng.GrowingNeuralGas(img[1])
     
 

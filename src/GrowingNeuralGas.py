@@ -1,3 +1,4 @@
+from operator import attrgetter
 import numpy as np
 import random
 import cv2
@@ -20,33 +21,29 @@ class GrowingNeuralGas():
         self.edges          : list[Edge]                = []
         self.dotLocations   : np.ndarray[TwoDimVector]  = []
         self.borders        : tuple[float]              = input.shape
-        self.max_iterations : int                       = 1000
-        self.max_neighbours : int                       = 10
+        self.max_iterations : int                       = 75000
+        self.maxNodes       : int                       = 50
+        self.newNodeEvery   : int                       = 5
         self.max_error      : float                     = 0.1
         self.max_distance   : int                       = 140
-        self.min_distance   : int                       = 1
-        self.learning_rate  : float                     = 0.1
+        self.maxAge         : int                       = 10
+        self.minDistance    : int                       = 10
+        self.learningRate   : float                     = 0.5
         self.threshold      : float                     = 0.1
         self.numNodes       : int                       = 0
 
-        self.getCentrePoints()
+        self.setDataPoints()
         self.createInitialNodes()
         self.train()
 
     
-    def getCentrePoints(self):
+    def setDataPoints(self):
         """ Get centre points of each blob in the image """
-        im2, contours = cv2.findContours(self.input, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        for c in im2:
-            M = cv2.moments(c)
-            if M["m00"] != 0:
-                cx = int(M["m10"] / M["m00"])
-                cy = int(M["m01"] / M["m00"])
-                # ignore centre of the image
-                if cx != self.borders[0] // 2 - 1 and cy != self.borders[1] // 2 - 1:
-                    self.dotLocations.append(TwoDimVector(cx, cy))
-        
-        self.dotLocations = np.array(self.dotLocations)
+        data = []
+        for (x, y), value in np.ndenumerate(self.input):
+            if value == 0:
+                data.append(TwoDimVector(x, y))
+        self.dotLocations = np.array(data)
 
     def createNode(self, pos):
         """
@@ -77,10 +74,8 @@ class GrowingNeuralGas():
         """
         # edgeSrc/Dst are there to simply ensure that src is always the source node's id for aesthetic purposes
         edgeSrc = Edge(src, dst, 0)
-        edgeDst = Edge(dst, src, 0)
-        src.edges.append(edgeSrc)
-        dst.edges.append(edgeDst)
         self.edges.append(edgeSrc)
+        
 
 
     def removeConnectionOfTwoNodes(self, src, dst):
@@ -88,35 +83,18 @@ class GrowingNeuralGas():
         Removes the edge between the two given nodes.
         """
         # Check if src and dst are connected, if so then remove the edge entry for both data structures, also self.edges
-        edgetoRemoveFromSrcAndThis = None
-        edgetoRemoveFromDst = None
-        srcFound = False
-        dstFound = False
         for edge in src.edges:
-            if dst.id == edge.target.id:
-                edgetoRemoveFromSrcAndThis = edge
-                srcFound = True
-                
-        for edge in dst.edges:
-            if dst.id == edge.source.id:
-                edgeToRemoveFromDst = edge
-                dstFound = True
-                
-        if srcFound is True and dstFound is True:
-            src.edges.remove(edgetoRemoveFromSrcAndThis)
-            self.edges.remove(edgetoRemoveFromSrcAndThis)
-            dst.edges.remove(edgeToRemoveFromDst)
-            return True
-
-        elif srcFound is True and dstFound is False:
-            print(f"Attempting to remove edges {src} -> {dst} but {dst} is not connected to {src}. Something is wrong with pointer maintenance")
-            return False
-        elif srcFound is False and dstFound is True:
-            print(f"Attempting to remove edges {dst} -> {src} but {src} is not connected to {dst}. Something is wrong with pointer maintenance")
-            return False
+            if edge.source.id == src.id and edge.target.id == dst.id:
+                self.edges.remove(edge)
+                return True
+            if edge.target.id == src.id and edge.source.id == dst.id:
+                self.edges.remove(edge)
+                return True
             
-        else:
-            return False
+                
+        
+        return False
+
 
     def visualize(self):
         """
@@ -125,7 +103,7 @@ class GrowingNeuralGas():
         # Show the visualization array in matplotlib
         plt.imshow(self.visualization, cmap='gray')
 
-        # with a single-pixel dot, illustrate self.dotLocations
+        # # with a single-pixel dot, illustrate self.dotLocations
         for dot in self.dotLocations:
             plt.scatter(dot.x, dot.y, color='cyan', s=1)
 
@@ -137,9 +115,7 @@ class GrowingNeuralGas():
         for edge in self.edges:
             plt.plot([edge.source.pos.x, edge.target.pos.x], [edge.source.pos.y, edge.target.pos.y], 'g-', alpha=0.5, linewidth=0.5)            
         
-        # show the plot
         plt.show()
-
 
     def createInitialNodes(self):
         """
@@ -152,13 +128,26 @@ class GrowingNeuralGas():
             randomY = random.randint(0, self.borders[1] - 1)
             node = self.createNode(TwoDimVector(randomX, randomY))
             nodes.append(node)
+
+
+    def findTwoClosestNodes(self, dataPoint : TwoDimVector):
+        """
+        Finds the node with the highest activation value.
+        """
+        class Distance():
+            def __init__(self, node, distance):
+                self.node = node
+                self.distance = distance
+
+        tmp = [None] * len(self.nodes) # preallocate memory
+        tmp = np.array(tmp)
+        for i, node in enumerate(self.nodes):
+            dist = dpNodeEclDst(dataPoint, node)
+            tmp[i] = Distance(node, dist)
         
-        # Connect the two nodes
-        self.connectTwoNodes(nodes[0], nodes[1])
-
-
-    def findWinner():
-        pass
+        # Sort the array
+        sortedByDistance = sorted(tmp, key=lambda tup: tup.distance)
+        return sortedByDistance[0], sortedByDistance[1]
 
 
     def train(self):
@@ -167,38 +156,58 @@ class GrowingNeuralGas():
         """
         # Iterate over all nodes and edges for the number of max iters
         for i in range(self.max_iterations):
-            for node in self.nodes:
-                for edge in node.edges:
-                    # get find the two nodes that are the nearest to any point in self.dotLocations
-                    
+            print(f"Iteration {i} / {self.max_iterations}")
 
-                    # Compute the distance between the source and target node
-                    dst = nodeEclDst(node, edge.target)
-                    # If the distance is greater than the max_distance then remove the edge
-                    if dst > self.max_distance:
+            # Take a random data point
+            randomDataPointIndex = random.randint(0, len(self.dotLocations) - 1)
+            randomDataPoint = self.dotLocations[randomDataPointIndex]
+
+            # Find the two closest nodes
+            first, second = self.findTwoClosestNodes(randomDataPoint)
+            if first.distance < self.minDistance:
+                print("No nearby nodes")
+                continue
+
+            # Update error distance and positions
+            first.node.error += first.distance
+            first.node.pos.x += self.learningRate * (randomDataPoint.x - first.node.pos.x)
+            first.node.pos.y += self.learningRate * (randomDataPoint.y - first.node.pos.y)
+
+            # Connect the two nodes
+            self.connectTwoNodes(first.node, second.node)
+
+            # Update edge ages
+            for edge in self.edges:
+                if edge.source.id == first.node.id or edge.target.id == first.node.id:
+                    edge.age += 1
+
+                    # Remove the oldies
+                    if edge.age > self.maxAge:
                         self.removeConnectionOfTwoNodes(edge.source, edge.target)
-                    # If the distance is smaller than the min_distance then add a new node
-                    elif dst < self.min_distance:
-                        # Create a new node at the middle of the source and target node
-                        middleX = (edge.source.pos.x + edge.target.pos.x) / 2
-                        middleY = (edge.source.pos.y + edge.target.pos.y) / 2
-                        middleNode = self.createNode(TwoDimVector(middleX, middleY))
-                        # Connect the new node to the source and target node
-                        self.connectTwoNodes(edge.source, middleNode)
-                        self.connectTwoNodes(edge.target, middleNode)
-                        # Connect the new node to the source and target node
-                        self.connectTwoNodes(middleNode, edge.target)
-                        self.connectTwoNodes(middleNode, edge.source)
-                    # If the distance is between the min_distance and max_distance then update the error
-                    else:
-                        # Compute the error
-                        error = self.max_error - dst / self.max_distance
-                        # Update the error of the edge
-                        edge.weight += error * self.learning_rate
-                        # Update the error of the source node
-                        edge.source.error += error * self.learning_rate
-                        # Update the error of the target node
-            
-            self.visualize()
-        
-        
+
+            # Check if we should add a new node
+            if i % self.newNodeEvery == 0 and self.numNodes < self.maxNodes:
+                
+                largestErrorNode = max(self.nodes, key=attrgetter('error'))
+                # Get the largest error neighbour that largestErrorNode has by querying self.edges
+                tmp = 0
+                largestNeighbour = None
+                for edge in self.edges:
+                    if edge.source.id == largestErrorNode.id:
+                        if edge.target.error > tmp:
+                            tmp = edge.target.error
+                            largestNeighbour = edge.target
+                    elif edge.target.id == largestErrorNode.id:
+                        if edge.source.error > tmp:
+                            tmp = edge.source.error
+                            largestNeighbour = edge.source
+
+
+
+                
+
+                randomX = random.randint(0, self.borders[0] - 1)
+                randomY = random.randint(0, self.borders[1] - 1)
+                self.createNode(TwoDimVector(randomX, randomY))
+                       
+        self.visualize()
