@@ -2,12 +2,14 @@ import src.GrowingNeuralGas as Gng
 import cv2
 import argparse
 import numpy as np
+import os
 
 # Create commandline arguments for passing location of image
 def getCmdLineArgs():
     parser = argparse.ArgumentParser()
     parser.add_argument('image', help='Location of image to be processed')
-    parser.add_argument('-i', '--iterations', type=int, default=20000, help='Number of training iterations')
+    parser.add_argument('-i', '--input', type=str, default=os.path.join('data', 'dog.png'), help='Input data')
+    parser.add_argument('-e', '--epocs', type=int, default=10000, help='Number of training iterations')
     args = parser.parse_args()
     return args
 

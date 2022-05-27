@@ -1,0 +1,47 @@
+name: gngElavr
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - _libgcc_mutex=0.1=main
+  - _openmp_mutex=5.1=1_gnu
+  - bzip2=1.0.8=h7b6447c_0
+  - ca-certificates=2022.4.26=h06a4308_0
+  - certifi=2022.5.18.1=py310h06a4308_0
+  - ld_impl_linux-64=2.38=h1181459_1
+  - libblas=3.9.0=14_linux64_openblas
+  - libcblas=3.9.0=14_linux64_openblas
+  - libffi=3.3=he6710b0_2
+  - libgcc-ng=11.2.0=h1234567_0
+  - libgfortran-ng=11.2.0=h00389a5_0
+  - libgfortran5=11.2.0=h1234567_0
+  - libgomp=11.2.0=h1234567_0
+  - liblapack=3.9.0=14_linux64_openblas
+  - libopenblas=0.3.20=h043d6bf_1
+  - libstdcxx-ng=11.2.0=h1234567_0
+  - libuuid=1.0.3=h7f8727e_2
+  - ncurses=6.3=h7f8727e_2
+  - numpy=1.21.6=py310h45f3432_0
+  - openssl=1.1.1o=h7f8727e_0
+  - pip=21.2.4=py310h06a4308_0
+  - python=3.10.4=h12debd9_0
+  - python_abi=3.10=2_cp310
+  - readline=8.1.2=h7f8727e_1
+  - setuptools=61.2.0=py310h06a4308_0
+  - sqlite=3.38.3=hc218d9a_0
+  - tk=8.6.11=h1ccaba5_1
+  - tzdata=2022a=hda174b7_0
+  - wheel=0.37.1=pyhd3eb1b0_0
+  - xz=5.2.5=h7f8727e_1
+  - zlib=1.2.12=h7f8727e_2
+  - pip:
+    - cycler==0.11.0
+    - fonttools==4.33.3
+    - kiwisolver==1.4.2
+    - matplotlib==3.5.2
+    - opencv-python==4.5.5.64
+    - packaging==21.3
+    - pillow==9.1.1
+    - pyparsing==3.0.9
+    - python-dateutil==2.8.2
+    - six==1.16.0
