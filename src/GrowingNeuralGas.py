@@ -11,26 +11,35 @@ class GrowingNeuralGas():
     """ Implements the growing neural gas algorithm as described by Bernd Fritzke """
 
     def __init__(self, input, trainingIterations):
-        """
-        Initializes the Growing Neural Gas algorithm.
-        """
+        """ Input is a 2D array of the image """
         self.input          : np.ndarray                = input
+        """ Copy of the input for visualization purposes """
         self.visualization  : np.ndarray                = input
+        """ Nodes of the network """
         self.nodes          : list[Node]                = []
+        """ Edges that the nodes are connected with """
         self.edges          : list[Edge]                = []
-        self.dotLocations   : np.ndarray[TwoDimVector]  = []
+        """ X-Y locations of datapoints"""
+        self.dataPoints     : np.ndarray[TwoDimVector]  = []
+        """ Width/Height of the image"""
         self.borders        : tuple[float]              = input.shape
-        self.max_iterations : int                       = trainingIterations
+        """ Iterations that the gng will run for """
+        self.maxIters       : int                       = trainingIterations
+        """ Max number of nodes in the network """
         self.maxNodes       : int                       = 200
+        """ Lambda value for the gng algorithm """
         self.lmbda          : int                       = 100
+        """ Alpha value for the gng algorithm """
         self.alpha          : int                       = 0.5
+        """ Beta value for the gng algorithm """
         self.beta           : int                       = 0.00005
-        self.max_error      : float                     = 0.1
-        self.max_distance   : int                       = 140
+        """ Max age of an edge """
         self.maxAge         : int                       = 10
+        """ Minimum distance between nodes"""
         self.minDistance    : int                       = 10
-        self.learningRate   : float                     = 0.5
-        self.threshold      : float                     = 0.1
+        """ Learning rate of the algorithm"""
+        self.learningRate   : float                     = 0.2
+        """ Current number of nodes in the network """
         self.numNodes       : int                       = 0
 
         self.setDataPoints()
@@ -47,7 +56,7 @@ class GrowingNeuralGas():
                 counter += 1
                 if counter % 5 == 0: # decrease the amount of data points
                     data.append(TwoDimVector(x, y))
-        self.dotLocations = np.array(data)
+        self.dataPoints = np.array(data)
 
     def createNode(self, pos):
         """
@@ -111,7 +120,7 @@ class GrowingNeuralGas():
         #plt.imshow(self.visualization, cmap='gray')
 
         # # with a single-pixel dot, illustrate self.dotLocations
-        for dot in self.dotLocations:
+        for dot in self.dataPoints:
             plt.scatter(dot.x, -dot.y, color='cyan', s=1)
 
         # with a small red dot add all nodes
@@ -162,12 +171,12 @@ class GrowingNeuralGas():
         Trains the network for the given number of iterations.
         """
         # Iterate over all nodes and edges for the number of max iters
-        for i in range(self.max_iterations):
-            print(f"Iteration {i} / {self.max_iterations}")
+        for i in range(self.maxIters):
+            print(f"Iteration {i} / {self.maxIters}")
 
             # Take a random data point
-            randomDataPointIndex = random.randint(0, len(self.dotLocations) - 1)
-            randomDataPoint = self.dotLocations[randomDataPointIndex]
+            randomDataPointIndex = random.randint(0, len(self.dataPoints) - 1)
+            randomDataPoint = self.dataPoints[randomDataPointIndex]
 
             # Find the two closest nodes
             first, second = self.findTwoClosestNodes(randomDataPoint)
